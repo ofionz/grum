@@ -1,12 +1,14 @@
 <template>
   <div>
 
-    <ejs-schedule id='Schedule' height='600px' :locale='"ru"' :firstDayOfWeek='1'
-                  :popupOpen='onPopupOpen' :cellClick="onCellClick" :eventClick="onEventClick"
-                  :showTimeIndicator="false"
-                  ref="schedule"
-                  :startHour="startHour" :endHour="endHour" :eventSettings='eventSettings'
-                  :timeScale='timeScale'>
+    <ejs-schedule
+        v-if="isInit"
+        id='Schedule' height='600px' :locale='"ru"' :firstDayOfWeek='1'
+        :popupOpen='onPopupOpen' :cellClick="onCellClick" :eventClick="onEventClick"
+        :showTimeIndicator="false"
+        ref="schedule"
+        :startHour="startHour" :endHour="endHour" :eventSettings='eventSettings'
+        :timeScale='timeScale'>
       <e-views>
         <e-view option='Week' dateFormat='dd-MMM-yyyy'></e-view>
       </e-views>
@@ -20,7 +22,8 @@
       <v-card v-if="modalState.show">
         <v-card-title class="d-flex flex-column">
           <span class="text-h5 ">{{ modalState.title }}</span>
-          <v-subheader v-if="modalState.date" class="d-flex flex-column"><span>{{ modalState.MASTER.NAME + " " +  modalState.MASTER.LAST_NAME }} </span><span>{{
+          <v-subheader v-if="modalState.date" class="d-flex flex-column">
+            <span>{{ modalState.MASTER.NAME + " " + modalState.MASTER.LAST_NAME }} </span><span>{{
               modalState.date.getFullYear() + '/' + (1 + modalState.date.getMonth()) + "/" + modalState.date.getDate()
             }}</span>
           </v-subheader>
@@ -29,7 +32,7 @@
         <v-card-text>
           <v-container>
 
-            <v-select label="Ассистент"
+            <v-select label="Помощник"
                       hint="В списке только доступные на текущую дату"
                       :items="modalState.ASSISTANTS"
                       v-model="curElem.ASSISTANT_ID"
@@ -68,7 +71,7 @@
             {{ "Удалить" }}
           </v-btn>
           <v-btn
-              :disabled="!(curElem.SALON_ID&&curElem.ASSISTANT_ID) || !isEditable"
+              :disabled="!curElem.SALON_ID || !isEditable"
               color="green darken-1"
               text
 
@@ -114,7 +117,7 @@ var majorTemplateVue = Vue.component('majorTimeLine', {
   },
 
   methods: {
-    getPhoto : function (date) {
+    getPhoto: function (date) {
       return this.$store.state.data.MASTERS[date.getHours() * 60 + date.getMinutes()]?.AVATAR;
     },
     getName: function (date) {
@@ -129,17 +132,23 @@ var eventTemplateVue = Vue.component('eventTemplate', {
     <div class='template-wrap'>
     <div class='subject'><b>{{ $store.getters.getSalonByID(data.SALON_ID).NAME }}</b></div>
     <div class='time'>
-      {{  $store.getters.getAssistantByID(data.ASSISTANT_ID ).NAME +" "+ $store.getters.getAssistantByID(data.ASSISTANT_ID ).LAST_NAME }}
+      {{ getAssistName(data.ASSISTANT_ID) }}
     </div>
     </div>`,
   data() {
     return {
-      data: {}
+      data: {},
     };
   },
-  created() {
+  methods: {
+    getAssistName(ID) {
+      if (ID) {
+        return this.$store.getters.getAssistantByID(this.data.ASSISTANT_ID).NAME + " " + this.$store.getters.getAssistantByID(this.data.ASSISTANT_ID).LAST_NAME
+      } else return ''
+    }
 
   }
+
 });
 
 
@@ -148,20 +157,18 @@ export default {
   provide: {
     schedule: [Week]
   },
-  components: {
-
-  },
+  components: {},
   data() {
     return {
+      isInit: false,
       isEditable: false,
       curElem: {},
       modalState: {
         show: false,
         MASTER: {},
-
       },
       startHour: '00:00',
-      endHour:  '00:05',
+      endHour: '00:05',
       timeScale: {
         enable: true,
         interval: 1,
@@ -172,8 +179,6 @@ export default {
       },
 
       eventSettings: {
-
-
         template: function (e) {
           return {
             template: eventTemplateVue
@@ -199,11 +204,12 @@ export default {
     },
     async saveElem() {
       let payload = {
-        DATE: this.curElem.DATE,
+        DATE: this.curElem.DATE.getFullYear()+"-"+(1+this.curElem.DATE.getMonth())+"-"+this.curElem.DATE.getDate()+'T00:00:00.000Z',
         MASTER_ID: this.curElem.MASTER_ID,
         SALON_ID: this.curElem.SALON_ID,
-        ASSISTANT_ID: this.curElem.ASSISTANT_ID,
+        ASSISTANT_ID:  this.curElem.ASSISTANT_ID!='0'? this.curElem.ASSISTANT_ID:'',
       }
+
       let id = await this.$store.dispatch('addEvent', payload);
       if (id) {
         payload.Id = id;
@@ -220,10 +226,11 @@ export default {
     async updateElem() {
 
       let payload = {
-        DATE: this.curElem.DATE,
+        ID: this.curElem.ID,
+        DATE: this.curElem.DATE.getFullYear()+"-"+(1+this.curElem.DATE.getMonth())+"-"+this.curElem.DATE.getDate()+'T00:00:00.000Z',
         MASTER_ID: this.curElem.MASTER_ID,
         SALON_ID: this.curElem.SALON_ID,
-        ASSISTANT_ID: this.curElem.ASSISTANT_ID,
+        ASSISTANT_ID: this.curElem.ASSISTANT_ID!='0'? this.curElem.ASSISTANT_ID:'',
       }
       let result = await this.$store.dispatch('updateEvent', payload);
       if (result) {
@@ -263,19 +270,20 @@ export default {
       }
     },
     onEventClick(ev) {
-
       this.curElem = {
         DATE: ev.event.StartTime,
         ID: ev.event.ID,
         ASSISTANT_ID: ev.event.ASSISTANT_ID,
         SALON_ID: ev.event.SALON_ID,
-        MASTER_ID:ev.event.MASTER_ID,
+        MASTER_ID: ev.event.MASTER_ID,
       }
+
+      let assistants = ev.event.ASSISTANT_ID ? [this.$store.getters.getAssistantByID(ev.event.ASSISTANT_ID)].concat(this.$store.getters.getFreeAssistant(ev.event.StartTime)) : this.$store.getters.getFreeAssistant(ev.event.StartTime);
 
       this.modalState = {
         show: true,
         title: "Подробности",
-        ASSISTANTS: [this.$store.getters.getAssistantByID(ev.event.ASSISTANT_ID)].concat(this.$store.getters.getFreeAssistant(ev.event.StartTime)),
+        ASSISTANTS: assistants,
         SALONS: [this.$store.getters.getSalonByID(ev.event.SALON_ID)].concat(this.$store.getters.getFreeSalons(ev.event.StartTime)),
         MASTER: this.$store.getters.getMasterByID(ev.event.MASTER_ID),
         date: ev.event.StartTime
@@ -294,20 +302,23 @@ export default {
     }
   },
 
+  mounted: async function () {
+    this.$store.dispatch('fetchData').then(() => {
+      this.endHour = this.calcHourView(this.$store.state.data.MASTERS.length)
+      this.eventSettings.dataSource = this.$store.state.data.SCHEDULE
+      this.isEditable = this.$store.state.data.EDIT_RIGHTS
+      this.isInit = true;
+    }).then(() => {
+      Array.from(document.getElementsByClassName('e-tbar-btn-text')).find((el) => el.textContent === 'Today').textContent = "Сегодня";
+      let scheduleObj = document.getElementById('Schedule').ej2_instances[0];
+      scheduleObj.timeScale.majorSlotTemplate = this.majorSlotTemplate;
+      scheduleObj.dataBind();
+    });
 
-  async created() {
-    await this.$store.dispatch('fetchData');
-    this.endHour = this.calcHourView(this.$store.state.data.MASTERS.length)
-    this.eventSettings.dataSource = this.$store.state.data.SCHEDULE
-    this.isEditable = this.$store.state.data.EDIT_RIGHTS
-  },
 
-  mounted: function () {
-    Array.from(document.getElementsByClassName('e-tbar-btn-text')).find((el)=> el.textContent === 'Today').textContent = "Сегодня";
-    let scheduleObj = document.getElementById('Schedule').ej2_instances[0];
-    scheduleObj.timeScale.majorSlotTemplate = this.majorSlotTemplate;
-    scheduleObj.dataBind();
   }
+
+
 }
 
 </script>

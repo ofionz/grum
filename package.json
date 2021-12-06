@@ -7,12 +7,13 @@
     "build": "vue-cli-service build"
   },
   "dependencies": {
-    "core-js": "^3.6.5",
-    "vue": "^2.6.11",
-    "vuetify": "^2.4.0",
-    "vuex": "^3.4.0",
     "@syncfusion/ej2-vue-schedule": "^19.3.46",
-    "cldr-data": "^36.0.0"
+    "cldr-data": "^36.0.0",
+    "core-js": "^3.19.1",
+    "vue": "^2.6.14",
+    "vue-class-component": "^7.2.6",
+    "vuetify": "^2.4.0",
+    "vuex": "^3.4.0"
   },
   "devDependencies": {
     "@vue/cli-plugin-babel": "~4.5.0",
